@@ -1,5 +1,5 @@
 {
-  "name": "debt-system-worker",
+  "name": "kanichnar-debt",
   "main": "src/index.ts",
   "compatibility_date": "2024-12-01",
 
