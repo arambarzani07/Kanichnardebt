@@ -1,56 +1,52 @@
-import { handleMessage } from "./message";
-import { auditError } from "./audit";
+// src/index.ts
+import { handleUpdate } from "./telegram";
 
 export interface Env {
-  BOT_TOKEN: string;        // Secret (Cloudflare)
-  ADMIN_TG_ID: string;      // Variable
-  WEBHOOK_SECRET?: string;  // Optional secret
-  DB: D1Database;
-}
-
-function okJson(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
+  TELEGRAM_BOT_TOKEN: string;
+  DB: D1Database; // اگر binding ـی D1 ناوی DB ـە
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Always respond quickly to Telegram
+    if (request.method === "GET") {
+      return new Response("OK", { status: 200 });
+    }
+
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
+
     try {
-      const url = new URL(request.url);
-
-      // Health check
-      if (request.method === "GET") {
-        return okJson({ ok: true, service: "kanichnar-debt", path: url.pathname });
+      // Guard: token must exist
+      if (!env.TELEGRAM_BOT_TOKEN) {
+        console.error("Missing TELEGRAM_BOT_TOKEN secret");
+        return new Response("OK", { status: 200 });
       }
 
-      if (request.method !== "POST") {
-        return okJson({ ok: false, error: "Method not allowed" }, 405);
+      // Read body safely
+      const raw = await request.text();
+      if (!raw) {
+        console.error("Empty body from Telegram");
+        return new Response("OK", { status: 200 });
       }
 
-      // Optional webhook secret verification
-      const expected = (env.WEBHOOK_SECRET || "").trim();
-      if (expected) {
-        const got = request.headers.get("x-telegram-bot-api-secret-token") || "";
-        if (got !== expected) {
-          return okJson({ ok: false, error: "Unauthorized" }, 401);
-        }
+      let update: any;
+      try {
+        update = JSON.parse(raw);
+      } catch (e) {
+        console.error("Invalid JSON body", raw);
+        return new Response("OK", { status: 200 });
       }
 
-      const update = await request.json<any>();
-      await handleMessage(env, update);
+      // Process update async (so we return 200 fast)
+      ctx.waitUntil(handleUpdate(env, update));
 
-      return okJson({ ok: true });
+      return new Response("OK", { status: 200 });
     } catch (err: any) {
-      await auditError(
-        env,
-        null,
-        "index.fetch",
-        err,
-        { note: "worker top-level failure" }
-      );
-      return okJson({ ok: false, error: "Internal error" }, 500);
+      console.error("Unhandled error in fetch()", err?.stack || err);
+      // Still return 200 so Telegram doesn't keep failing
+      return new Response("OK", { status: 200 });
     }
   },
 };
