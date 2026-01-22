@@ -1,0 +1,24 @@
+{
+  "name": "kanichnar-debt",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-01-22",
+
+  // ئەگەر لە Cloudflare dashboard ـدا Route دانابێت، لێرەش دەتوانیت دایبنێیت.
+  // تکایە دڵنیابە debtsystemmanager.com لە Cloudflare DNS ـدا "proxied" ـە.
+  "routes": [
+    { "pattern": "debtsystemmanager.com/*", "zone_name": "debtsystemmanager.com" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "ae035cc6-9c53-4351-a81f-71fd4cbccb2c"
+    }
+  ],
+
+  "vars": {
+    "APP_NAME": "Kanichnar Debt",
+    "DEFAULT_CURRENCY": "IQD",
+    "ALLOW_USD": "true"
+  }
+}
